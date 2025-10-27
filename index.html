@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard & Input Aktivitas Sales</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .filter-btn.active { background-color: #3b82f6; color: white; }
+        .tooltip { position: relative; display: inline-block; cursor: pointer; }
+        .tooltip .tooltiptext { visibility: hidden; width: 220px; background-color: #1f2937; color: #fff; text-align: left; border-radius: 6px; padding: 8px; position: absolute; z-index: 10; bottom: 125%; left: 50%; margin-left: -110px; opacity: 0; transition: opacity 0.3s; font-size: 0.75rem; line-height: 1.5; white-space: normal; }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+        .fade-in { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-spin { animation: spin 1s linear infinite; }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        /* Calendar Styles */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background-color: #e2e8f0; border: 1px solid #e2e8f0; }
+        .calendar-cell { background-color: #fff; padding: 8px; min-height: 120px; position: relative; display: flex; flex-direction: column; }
+        .calendar-day-header { font-size: 0.75rem; text-align: center; padding: 8px 0; font-weight: 500; color: #475569; background-color: #f8fafc; }
+        .calendar-date { font-size: 0.8rem; font-weight: 500; margin-bottom: 4px; }
+        .calendar-event { background-color: #eff6ff; border-left: 3px solid #3b82f6; padding: 4px 6px; margin-bottom: 4px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; /* Ubah jadi pointer */ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: background-color 0.2s; }
+        .calendar-event:hover { background-color: #dbeafe; } /* Efek hover */
+        .calendar-event strong { font-weight: 600; }
+        .other-month .calendar-date { color: #94a3b8; }
+        .today .calendar-date { background-color: #3b82f6; color: white; border-radius: 50%; width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; padding: 2px;}
+        /* Modal Styles */
+        .modal-enter { animation: fadeInModal 0.3s ease-out; }
+        .modal-leave { animation: fadeOutModal 0.3s ease-in; }
+        @keyframes fadeInModal { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes fadeOutModal { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.95); } }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800">
+
+    <!-- LAYAR LOGIN -->
+    <div id="loginScreen" class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm fade-in">
+            <div class="text-center mb-6">
+                <img src="https://info.xooply.id/wp-content/uploads/2023/01/Xooply-New-Fix.png" alt="Xooply Logo" class="h-16 w-auto mx-auto mb-4">
+                <h1 class="text-2xl font-bold text-slate-900 mt-4">Dashboard Monitoring Sales Activity</h1>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label for="roleSelector" class="block text-sm font-medium text-slate-700 mb-1">Pilih Peran</label>
+                    <select id="roleSelector" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="sales">Sales Person</option>
+                        <option value="manager">Manager</option>
+                        <option value="head_sales">Head Sales</option>
+                    </select>
+                </div>
+                <div id="managerSelectorContainer" class="hidden">
+                    <label for="managerSelector" class="block text-sm font-medium text-slate-700 mb-1">Pilih Manager</label>
+                    <select id="managerSelector" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                </div>
+                <div id="salesPersonSelectorContainer">
+                    <label for="salesPersonSelector" class="block text-sm font-medium text-slate-700 mb-1">Pilih Nama Anda</label>
+                    <select id="salesPersonSelector" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                </div>
+                <div>
+                    <label for="passwordInput" class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="passwordInput" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Masukkan password Anda">
+                </div>
+                <button id="loginBtn" class="w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg hover:bg-blue-700 transition-colors">Masuk</button>
+                <p id="loginError" class="text-rose-500 text-sm text-center pt-2 hidden">Password atau username salah.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- KONTEN UTAMA (DASHBOARD & FORM) -->
+    <div id="mainContent" class="hidden container mx-auto p-4 md:p-8">
+        
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+            <div>
+                <h1 id="dashboardTitle" class="text-3xl font-bold text-slate-900"></h1>
+                <p id="dashboardSubtitle" class="text-slate-500 mt-1"></p>
+            </div>
+            <div class="flex items-center gap-4 mt-4 sm:mt-0">
+                <button id="logoutBtn" class="flex items-center bg-white text-slate-700 font-semibold py-2 px-4 rounded-lg shadow-sm border border-slate-300 hover:bg-slate-50 transition-colors">
+                    <i data-lucide="log-out" class="mr-2 h-5 w-5"></i>
+                    Logout
+                </button>
+            </div>
+        </header>
+
+        <!-- Global Filter -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm mb-8">
+            <h2 class="text-xl font-semibold mb-4">Filter Global</h2>
+            <div class="flex flex-col sm:flex-row gap-4 items-center">
+                <div id="globalPeriodFilters" class="flex items-center bg-slate-100 rounded-lg p-1 text-sm shrink-0">
+                    <button class="filter-btn px-3 py-1 rounded-md transition-colors active" data-period="this-week">Minggu Ini</button>
+                    <button class="filter-btn px-3 py-1 rounded-md transition-colors" data-period="this-month">Bulan Ini</button>
+                    <button class="filter-btn px-3 py-1 rounded-md transition-colors" data-period="custom">Custom</button>
+                </div>
+                <div id="customDateContainer" class="hidden sm:flex items-center gap-2 text-sm">
+                    <input type="date" id="startDate" class="px-2 py-1 border rounded-md">
+                    <span>-</span>
+                    <input type="date" id="endDate" class="px-2 py-1 border rounded-md">
+                </div>
+                 <div id="managerFilterContainer" class="hidden w-full sm:w-auto">
+                    <label for="salesFilter" class="block text-sm font-medium text-slate-700 mb-1 sr-only">Filter Sales</label>
+                    <select id="salesFilter" class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                 </div>
+            </div>
+        </div>
+        
+        <!-- Form Input (Dipindah ke sini, hanya tampil untuk Sales) -->
+        <div id="inputFormContainer" class="hidden bg-white p-6 rounded-2xl shadow-sm mb-8">
+             <h2 class="text-xl font-semibold mb-4">Tambah Aktivitas Baru</h2>
+             <div id="successMessage" class="hidden bg-emerald-100 text-emerald-700 p-3 rounded-lg mb-4 text-sm"></div>
+            <form id="activityForm">
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div><label for="clientName" class="block text-sm font-medium">Nama Klien</label><input type="text" id="clientName" class="w-full mt-1 px-3 py-2 border rounded-lg" required></div>
+                    <div><label for="meetingDate" class="block text-sm font-medium">Tgl Meeting</label><input type="date" id="meetingDate" class="w-full mt-1 px-3 py-2 border rounded-lg" required></div>
+                </div>
+                <div class="mb-4">
+                     <label class="block text-sm font-medium mb-2">Tipe Klien</label>
+                     <div class="flex gap-4"><label class="flex items-center"><input type="radio" name="clientType" value="new" class="h-4 w-4" checked><span class="ml-2">Klien Baru</span></label><label class="flex items-center"><input type="radio" name="clientType" value="existing" class="h-4 w-4"><span class="ml-2">Klien Existing</span></label></div>
+                </div>
+                 <div class="mb-4"><label for="salesPerson" class="block text-sm font-medium">Nama Sales</label><select id="salesPerson" class="w-full mt-1 px-3 py-2 border rounded-lg bg-slate-100" required disabled></select></div>
+                 <div class="mb-4"><label for="meetingNotes" class="block text-sm font-medium">Hasil Meeting</label><textarea id="meetingNotes" rows="3" class="w-full mt-1 px-3 py-2 border rounded-lg"></textarea></div>
+                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label for="meetingType" class="block text-sm font-medium">Type Meeting</label>
+                        <select id="meetingType" class="w-full mt-1 px-3 py-2 border rounded-lg" required>
+                            <option>Awareness</option><option>Interest</option><option>Desire</option><option>Process Closing</option><option>Action</option><option>Delivery</option><option>Payment</option><option>Lost</option>
+                        </select>
+                    </div>
+                    <!-- FIELD CAPABILITY BARU -->
+                    <div>
+                        <label for="capability" class="block text-sm font-medium">Capability</label>
+                        <select id="capability" class="w-full mt-1 px-3 py-2 border rounded-lg" required>
+                            <option>SIPLah</option>
+                            <option>IT Outsourcing</option>
+                        </select>
+                    </div>
+                    <div><label for="dealValue" class="block text-sm font-medium">Nilai Deal (Rp)</label><input type="number" id="dealValue" class="w-full mt-1 px-3 py-2 border rounded-lg" required></div>
+                </div>
+                <div id="recurringOption" class="mb-4 hidden"><label class="flex items-center"><input type="checkbox" id="isRecurring" class="h-4 w-4"><span class="ml-2">Pelanggan recurring</span></label></div>
+                <div id="obstacleSection" class="mb-6 hidden"><label for="salesObstacle" class="block text-sm font-medium">Hambatan</label><select id="salesObstacle" class="w-full mt-1 px-3 py-2 border rounded-lg"><option>Harga Terlalu Tinggi</option><option>Kalah dari Kompetitor</option><option>Fitur Produk Kurang</option><option>Waktu Tidak Tepat</option><option>Lainnya</option></select></div>
+                <button type="submit" id="submitBtn" class="w-full bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg flex items-center justify-center">Simpan</button>
+            </form>
+        </div>
+
+        <!-- BLOK RINGKASAN AKTIVITAS -->
+        <div id="summaryContainer" class="bg-white p-6 rounded-2xl shadow-sm mb-8">
+            <h2 class="text-xl font-semibold mb-4">Ringkasan Aktivitas</h2>
+            <div id="salesSummaryOutput" class="bg-slate-50 p-4 rounded-lg text-slate-700 min-h-[80px] leading-relaxed mb-4">
+                <p>Pilih filter di atas untuk melihat ringkasan.</p>
+            </div>
+        </div>
+
+        <!-- Analisis Durasi Sales Cycle (Khusus Manager) -->
+        <div id="salesCycleContainer" class="hidden bg-white p-6 rounded-2xl shadow-sm mb-8">
+            <h2 class="text-xl font-semibold mb-4">Rata-rata Durasi Sales Cycle per Sales Person</h2>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-xs text-slate-500 uppercase bg-slate-50">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 rounded-l-lg">Sales Person</th>
+                            <th scope="col" class="px-6 py-3 text-center">Jumlah Deal Selesai</th>
+                            <th scope="col" class="px-6 py-3 rounded-r-lg text-center">Rata-rata Durasi (Hari)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="salesCycleBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between">
+                <div><p class="text-sm font-medium text-slate-500">Jumlah Meeting</p><p id="totalMeetings" class="text-3xl font-bold text-slate-900">0</p></div>
+                <div class="bg-blue-100 p-3 rounded-full"><i data-lucide="calendar" class="h-6 w-6 text-blue-600"></i></div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between">
+                <div><p class="text-sm font-medium text-slate-500">Klien Prospek</p><p id="totalProspects" class="text-3xl font-bold text-slate-900">0</p></div>
+                <div class="bg-yellow-100 p-3 rounded-full"><i data-lucide="users" class="h-6 w-6 text-yellow-600"></i></div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between">
+                <div><p class="text-sm font-medium text-slate-500">Client Deal (Won)</p><p id="totalDeals" class="text-3xl font-bold text-slate-900">0</p></div>
+                <div class="bg-emerald-100 p-3 rounded-full"><i data-lucide="award" class="h-6 w-6 text-emerald-600"></i></div>
+            </div>
+            <div class="bg-white p-6 rounded-2xl shadow-sm flex items-center justify-between">
+                <div><p class="text-sm font-medium text-slate-500">Pelanggan Recurring</p><p id="totalRecurring" class="text-3xl font-bold text-slate-900">0</p></div>
+                <div class="bg-indigo-100 p-3 rounded-full"><i data-lucide="repeat" class="h-6 w-6 text-indigo-600"></i></div>
+            </div>
+        </div>
+
+        <!-- Tata Letak Baru -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Kolom Kiri: Kalender -->
+            <div class="lg:col-span-2 space-y-8">
+                <!-- Kalender Aktivitas -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm">
+                    <div class="flex justify-between items-center mb-4">
+                         <h2 class="text-xl font-semibold">Kalender Aktivitas</h2>
+                         <div class="flex items-center gap-2">
+                            <button id="prevMonthBtn" class="p-1 rounded-md hover:bg-slate-100"><i data-lucide="chevron-left" class="h-5 w-5"></i></button>
+                            <span id="currentMonthYear" class="font-semibold w-32 text-center"></span>
+                            <button id="nextMonthBtn" class="p-1 rounded-md hover:bg-slate-100"><i data-lucide="chevron-right" class="h-5 w-5"></i></button>
+                         </div>
+                    </div>
+                    <div id="calendarContainer">
+                        <!-- Calendar grid will be generated here by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kolom Kanan: Sisa Grafik -->
+            <div class="flex flex-col gap-8">
+                 <!-- Grafik Tipe Meeting Paling Sering -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm">
+                    <h2 class="text-xl font-semibold mb-4">Tipe Meeting Paling Sering</h2>
+                    <canvas id="topMeetingTypesChart"></canvas> 
+                </div>
+                <!-- GRAFIK CAPABILITY BARU -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm">
+                    <h2 class="text-xl font-semibold mb-4">Fokus Capability</h2>
+                    <canvas id="capabilityChart"></canvas>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm">
+                    <h2 class="text-xl font-semibold mb-4">Analisis Hambatan Penjualan</h2>
+                    <canvas id="obstaclesChart"></canvas>
+                </div>
+            </div>
+        </div>
+         <!-- Grafik Tren Aktivitas Meeting (Dipindah ke bawah) -->
+         <div id="meetingTrendContainer" class="bg-white p-6 rounded-2xl shadow-sm mt-8">
+            <div class="flex justify-between items-center mb-1">
+                <h2 class="text-xl font-semibold">Tren Aktivitas Meeting</h2>
+                <div id="trendIndicator" class="flex items-center text-sm font-semibold"></div>
+            </div>
+            <p class="text-xs text-slate-400 mb-4">Perbandingan dengan periode sebelumnya</p>
+            <canvas id="meetingTrendChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Modal Detail Aktivitas -->
+    <div id="detailModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 hidden z-50">
+        <div id="detailModalContent" class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-lg overflow-y-auto max-h-[90vh] modal-enter">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Detail Aktivitas</h2>
+                <button id="closeDetailModalBtn" class="text-slate-400 hover:text-slate-600">
+                    <i data-lucide="x" class="h-6 w-6"></i>
+                </button>
+            </div>
+            <div id="modalBody" class="space-y-3 text-sm">
+                <!-- Detail content will be injected here by JS -->
+            </div>
+        </div>
+    </div>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    // --- PENTING: URL ANDA SUDAH DIMASUKKAN DI SINI ---
+    const googleScriptURL = 'https://script.google.com/macros/s/AKfycbwgfrzVyr16BWnBZ5nmOQ7h7zoib5IOM2hfX-BZGEH68yVkZwv4BUdOzEpyUWz1znzTjg/exec';
+    // ----------------------------------------------------
+
+    // --- STRUKTUR TIM & USER BARU ---
+    const managers = ['Toni Ardiyanto', 'Andhika Adhigunanto'];
+    const teamToni = ['Fitri Alifia', 'Wiwin Winarti', 'Agustian Ardiansyah', 'Aldi Apriliano', 'Sari Widiastuti', 'Syafitri Handayani'];
+    const teamAndhika = ['Mayumi', 'Tomi Dwi', 'Siti Maryam'];
+    const allSales = [...teamToni, ...teamAndhika];
+    
+    const managerTeamMap = {
+        'Toni Ardiyanto': teamToni,
+        'Andhika Adhigunanto': teamAndhika
+    };
+
+    const userCredentials = { 
+        'head_sales': 'headsales123',
+        'Toni Ardiyanto': 'toni123',
+        'Andhika Adhigunanto': 'andhika123',
+        'Fitri Alifia': 'fitri123', 
+        'Wiwin Winarti': 'wiwin123', 
+        'Agustian Ardiansyah': 'agustian123', 
+        'Aldi Apriliano': 'aldi123', 
+        'Sari Widiastuti': 'sari123', 
+        'Syafitri Handayani': 'syafitri123',
+        'Mayumi': 'mayumi123',
+        'Tomi Dwi': 'tomi123',
+        'Siti Maryam': 'siti123'
+    };
+    // --- AKHIR STRUKTUR TIM ---
+
+    let allDeals = [];
+    let charts = {};
+    let currentFilteredDeals = []; 
+    let currentRole = null;
+    let currentUser = null;
+    let currentCalendarDate = new Date(); 
+
+    // DOM Elements
+    const loginScreen=document.getElementById('loginScreen'),mainContent=document.getElementById('mainContent'),roleSelector=document.getElementById('roleSelector'),salesPersonSelectorContainer=document.getElementById('salesPersonSelectorContainer'),salesPersonSelector=document.getElementById('salesPersonSelector'),passwordInput=document.getElementById('passwordInput'),loginBtn=document.getElementById('loginBtn'),loginError=document.getElementById('loginError'),logoutBtn=document.getElementById('logoutBtn'),dashboardTitle=document.getElementById('dashboardTitle'),dashboardSubtitle=document.getElementById('dashboardSubtitle');
+    const globalPeriodFilters=document.getElementById('globalPeriodFilters'),customDateContainer=document.getElementById('customDateContainer'),startDateInput=document.getElementById('startDate'),endDateInput=document.getElementById('endDate'),managerFilterContainer=document.getElementById('managerFilterContainer'),salesFilter=document.getElementById('salesFilter');
+    const managerSelectorContainer = document.getElementById('managerSelectorContainer'); 
+    const managerSelector = document.getElementById('managerSelector'); 
+    const salesCycleContainer = document.getElementById('salesCycleContainer');
+    const totalMeetingsEl=document.getElementById('totalMeetings'),totalProspectsEl=document.getElementById('totalProspects'),totalDealsEl=document.getElementById('totalDeals'),totalRecurringEl=document.getElementById('totalRecurring');
+    const calendarContainer = document.getElementById('calendarContainer'), prevMonthBtn = document.getElementById('prevMonthBtn'), nextMonthBtn = document.getElementById('nextMonthBtn'), currentMonthYearEl = document.getElementById('currentMonthYear');
+    const trendIndicator=document.getElementById('trendIndicator');
+    const meetingTrendContainer = document.getElementById('meetingTrendContainer'); 
+    const inputFormContainer=document.getElementById('inputFormContainer'),activityForm=document.getElementById('activityForm'),meetingTypeSelect=document.getElementById('meetingType'),obstacleSection=document.getElementById('obstacleSection'),recurringOption=document.getElementById('recurringOption'),successMessage=document.getElementById('successMessage'),salesPersonInput=document.getElementById('salesPerson'),submitBtn=document.getElementById('submitBtn');
+    const summaryContainer = document.getElementById('summaryContainer');
+    const salesSummaryOutput = document.getElementById('salesSummaryOutput');
+    const detailModal = document.getElementById('detailModal'), detailModalContent = document.getElementById('detailModalContent'), closeDetailModalBtn = document.getElementById('closeDetailModalBtn'), modalBody = document.getElementById('modalBody');
+
+    function populateDropdowns() {
+        salesPersonSelector.innerHTML = allSales.map(name => `<option value="${name}">${name}</option>`).join('');
+        managerSelector.innerHTML = managers.map(name => `<option value="${name}">${name}</option>`).join('');
+        salesPersonInput.innerHTML = allSales.map(name => `<option value="${name}">${name}</option>`).join('');
+    }
+
+    function init() {
+        populateDropdowns();
+        currentRole = sessionStorage.getItem('salesRole');
+        currentUser = sessionStorage.getItem('salesUser');
+        if (currentRole) {
+            showDashboard();
+        } else {
+            showLogin();
+        }
+        setupEventListeners();
+    }
+
+    function showLogin() {
+        sessionStorage.clear();
+        currentRole = null;
+        currentUser = null;
+        loginScreen.style.display = 'flex';
+        mainContent.style.display = 'none';
+        roleSelector.value = 'sales';
+        salesPersonSelectorContainer.style.display = 'block';
+        managerSelectorContainer.style.display = 'none';
+        passwordInput.value = '';
+        loginError.classList.add('hidden');
+    }
+
+    async function showDashboard() {
+        loginScreen.style.display = 'none';
+        mainContent.style.display = 'block';
+        
+        mainContent.insertAdjacentHTML('afterbegin', `<div id="loadingOverlay" class="fixed inset-0 bg-slate-100 bg-opacity-80 flex items-center justify-center z-50"><div class="flex items-center text-slate-600"><i data-lucide="loader-2" class="animate-spin mr-2 h-6 w-6"></i><span>Memuat data dari database...</span></div></div>`);
+        lucide.createIcons();
+        
+        try {
+            const response = await fetch(googleScriptURL);
+            if(!response.ok) throw new Error("Network response was not ok.");
+            
+            const rawData = await response.json();
+            allDeals = rawData.map(deal => {
+                deal.value = parseInt(deal.value) || 0;
+                deal.meetingDateObj = new Date(deal.meetingDate);
+                deal.id = deal.id || Date.now() + Math.random(); 
+                return deal;
+            }).filter(d => d.meetingDate && !isNaN(d.meetingDateObj)); 
+        } catch (error) {
+            console.error("Gagal mengambil data:", error);
+             allDeals = [];
+             alert("Gagal memuat data dari server. Pastikan URL Google Script benar dan Anda memiliki koneksi internet.");
+        } finally {
+             document.getElementById('loadingOverlay')?.remove();
+             renderAppView();
+        }
+    }
+    
+    function renderAppView() {
+        let filterOptionsHtml = '';
+        if (currentRole === 'manager') {
+            const myTeam = managerTeamMap[currentUser] || [];
+            filterOptionsHtml = '<option value="all">Semua Tim Saya</option>' + myTeam.map(name => `<option value="${name}">${name}</option>`).join('');
+            
+            dashboardTitle.textContent = 'Manager Dashboard';
+            dashboardSubtitle.textContent = `Ringkasan performa untuk tim ${currentUser}.`;
+            managerFilterContainer.style.display = 'block';
+            salesCycleContainer.style.display = 'block';
+            summaryContainer.style.display = 'block';
+            inputFormContainer.style.display = 'none';
+            meetingTrendContainer.style.display = 'block';
+        } else if (currentRole === 'head_sales') {
+            filterOptionsHtml = '<option value="all">Semua Sales</option>' + allSales.map(name => `<option value="${name}">${name}</option>`).join('');
+
+            dashboardTitle.textContent = 'Head Sales Dashboard';
+            dashboardSubtitle.textContent = 'Ringkasan performa seluruh tim sales.';
+            managerFilterContainer.style.display = 'block';
+            salesCycleContainer.style.display = 'block';
+            summaryContainer.style.display = 'block';
+            inputFormContainer.style.display = 'none';
+            meetingTrendContainer.style.display = 'block'; 
+        } else { // Sales Person
+            dashboardTitle.textContent = 'My Dashboard';
+            dashboardSubtitle.textContent = `Selamat datang kembali, ${currentUser}!`;
+            managerFilterContainer.style.display = 'none';
+            salesCycleContainer.style.display = 'none';
+            summaryContainer.style.display = 'none'; 
+            inputFormContainer.style.display = 'block';
+            meetingTrendContainer.style.display = 'none'; 
+            salesPersonInput.value = currentUser;
+        }
+        
+        salesFilter.innerHTML = filterOptionsHtml;
+        currentCalendarDate = getFilterDates().startDate || new Date(); 
+        renderFilteredDashboard();
+    }
+
+    function getFilterDates() {
+        const selectedPeriod = globalPeriodFilters.querySelector('.active').dataset.period;
+        const today = new Date();
+        let startDate, endDate, prevStartDate, prevEndDate;
+
+        if (selectedPeriod === 'this-week') {
+            const firstDayOfWeek = today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1); // Monday as first day
+            startDate = new Date(new Date().setDate(firstDayOfWeek));
+            endDate = new Date(new Date(startDate).setDate(startDate.getDate() + 6));
+            prevStartDate = new Date(new Date(startDate).setDate(startDate.getDate() - 7));
+            prevEndDate = new Date(new Date(endDate).setDate(endDate.getDate() - 7));
+        } else if (selectedPeriod === 'this-month') {
+            startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+            endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            prevStartDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            prevEndDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        } else { // custom
+            startDate = new Date(startDateInput.value);
+            endDate = new Date(endDateInput.value);
+             if (!startDateInput.value || !endDateInput.value || isNaN(startDate) || isNaN(endDate)) {
+                return { startDate: null }; // Invalid date
+            }
+            const diff = endDate.getTime() - startDate.getTime();
+            prevStartDate = new Date(startDate.getTime() - diff - (24*60*60*1000));
+            prevEndDate = new Date(startDate.getTime() - (24*60*60*1000));
+        }
+        
+        startDate.setHours(0,0,0,0);
+        endDate.setHours(23,59,59,999);
+        if(prevStartDate) prevStartDate.setHours(0,0,0,0);
+        if(prevEndDate) prevEndDate.setHours(23,59,59,999);
+
+        return { startDate, endDate, prevStartDate, prevEndDate };
+    }
+
+    function renderFilteredDashboard() {
+        const { startDate, endDate, prevStartDate, prevEndDate } = getFilterDates();
+        
+        let salesToDisplay = [];
+        if (currentRole === 'manager') {
+            const myTeam = managerTeamMap[currentUser] || [];
+            salesToDisplay = (salesFilter.value === 'all') ? myTeam : [salesFilter.value];
+        } else if (currentRole === 'head_sales') {
+            salesToDisplay = (salesFilter.value === 'all') ? allSales : [salesFilter.value];
+        } else {
+            salesToDisplay = [currentUser];
+        }
+        
+        if (!startDate) {
+            currentFilteredDeals = [];
+        } else {
+            currentFilteredDeals = allDeals.filter(deal => {
+                const dealDate = deal.meetingDateObj; 
+                const salesMatch = salesToDisplay.includes(deal.sales);
+                return salesMatch && dealDate >= startDate && dealDate <= endDate;
+            });
+        }
+        
+        let prevPeriodDeals = allDeals.filter(deal => {
+             if (!prevStartDate) return false;
+             const dealDate = deal.meetingDateObj; 
+            const salesMatch = salesToDisplay.includes(deal.sales);
+            return salesMatch && dealDate >= prevStartDate && dealDate <= prevEndDate;
+        });
+
+        renderMetrics(currentFilteredDeals);
+        renderCalendar(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth()); 
+        if (currentRole === 'manager' || currentRole === 'head_sales') {
+            updateSalesSummary(currentFilteredDeals, salesFilter.value === 'all' ? `Tim ${currentUser}` : salesFilter.value); 
+            renderMeetingTrendChart(currentFilteredDeals, prevPeriodDeals); 
+            renderSalesCycleAnalysis(currentFilteredDeals); 
+        }
+        renderTopMeetingTypesChart(currentFilteredDeals); 
+        renderCapabilityChart(currentFilteredDeals); // Render Grafik Capability
+        renderObstaclesChart(currentFilteredDeals);
+    }
+
+    // Fungsi Ringkasan
+    function updateSalesSummary(filteredDeals, salesName) { 
+        if (!salesName) { 
+            salesSummaryOutput.innerHTML = `<p>Pilih seorang sales untuk melihat ringkasan.</p>`; 
+            return; 
+        } 
+        const selectedPeriod = globalPeriodFilters.querySelector('.active').dataset.period; 
+        let periodText = '';
+        if (selectedPeriod === 'this-week') { periodText = 'minggu ini'; }
+        else if (selectedPeriod === 'this-month') { periodText = 'bulan ini'; }
+        else {
+            const sd = startDateInput.value;
+            const ed = endDateInput.value;
+            if (sd && ed) {
+                periodText = `periode ${new Date(sd).toLocaleDateString('id-ID')} - ${new Date(ed).toLocaleDateString('id-ID')}`;
+            } else {
+                periodText = 'periode custom';
+            }
+        }
+
+        const periodDeals = filteredDeals;
+        
+        if (periodDeals.length === 0) { 
+            salesSummaryOutput.innerHTML = `<p><strong>${salesName === 'all' ? 'Tim Anda' : salesName}</strong> tidak memiliki aktivitas pada ${periodText}.</p>`;
+            return; 
+        } 
+
+        const totalMeetings = periodDeals.length; 
+        const wonProjects = periodDeals.filter(d => ['Action', 'Delivery', 'Payment'].includes(d.meetingType)).length;
+        const lostProjects = periodDeals.filter(d => d.meetingType === 'Lost'); 
+        const pendingProjects = periodDeals.filter(d => ['Awareness', 'Interest', 'Desire', 'Process Closing'].includes(d.meetingType)); 
+
+        let summaryTitle = salesName;
+        if(salesName === 'all' && currentRole === 'head_sales') summaryTitle = 'Seluruh Tim';
+        else if(salesName === 'all' && currentRole === 'manager') summaryTitle = `Tim ${currentUser}`;
+
+        let summaryHTML = `<p>Dalam <strong>${periodText}</strong>, <strong>${summaryTitle}</strong> telah melakukan total <strong>${totalMeetings} meeting</strong>. Berikut adalah rinciannya:</p>`; 
+        
+        summaryHTML += `<ul class="list-disc list-inside mt-2 space-y-2 text-sm max-h-40 overflow-y-auto">`; 
+        periodDeals.sort((a,b) => new Date(b.meetingDate) - new Date(a.meetingDate)).forEach(deal => { 
+            const meetingDate = new Date(deal.meetingDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' }); 
+            const note = deal.notes ? `<em>"${deal.notes}"</em>` : 'Tidak ada catatan.'; 
+            summaryHTML += `<li><strong>${meetingDate}</strong> - Meeting dengan <strong>${deal.client}</strong> (${deal.sales}). Hasil: ${note} (Type: ${deal.meetingType})</li>`; 
+        }); 
+        summaryHTML += `</ul>`; 
+
+        let closingSummary = ''; 
+        if (wonProjects > 0 || lostProjects.length > 0 || pendingProjects.length > 0) { 
+            let closingParts = []; 
+            if (wonProjects > 0) closingParts.push(`<strong>${wonProjects}</strong> project berhasil dimenangkan (atau dalam tahap akhir)`); 
+            if (pendingProjects.length > 0) closingParts.push(`<strong>${pendingProjects.length}</strong> project masih dalam proses`); 
+            if (lostProjects.length > 0) closingParts.push(`<strong>${lostProjects.length}</strong> project lost`); 
+            closingSummary = `Secara keseluruhan, ${closingParts.join(', ')}.`; 
+        } 
+        if(closingSummary) { summaryHTML += `<p class="mt-4">${closingSummary}</p>`; } 
+        
+        salesSummaryOutput.innerHTML = summaryHTML; 
+    }
+
+    function renderCalendar(year, month) {
+        const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+        currentMonthYearEl.textContent = `${monthNames[month]} ${year}`;
+
+        const firstDay = new Date(year, month, 1).getDay(); 
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const today = new Date();
+
+        let calendarHTML = `<div class="grid grid-cols-7 text-center text-xs font-semibold text-slate-500 py-2 border-b"><div>Sen</div><div>Sel</div><div>Rab</div><div>Kam</div><div>Jum</div><div>Sab</div><div>Min</div></div>`;
+        calendarHTML += `<div class="calendar-grid">`;
+
+        let date = 1;
+        const dayOffset = (firstDay === 0) ? 6 : firstDay - 1; 
+
+        for (let i = 0; i < 6; i++) { 
+            for (let j = 0; j < 7; j++) {
+                if (i === 0 && j < dayOffset) {
+                    calendarHTML += `<div class="calendar-cell other-month"></div>`; 
+                } else if (date > daysInMonth) {
+                     calendarHTML += `<div class="calendar-cell other-month"></div>`; 
+                } else {
+                    const currentDate = new Date(year, month, date);
+                    const isToday = currentDate.toDateString() === today.toDateString();
+                    
+                    let salesToDisplay = [];
+                    if (currentRole === 'manager') {
+                        salesToDisplay = (salesFilter.value === 'all') ? (managerTeamMap[currentUser] || []) : [salesFilter.value];
+                    } else if (currentRole === 'head_sales') {
+                        salesToDisplay = (salesFilter.value === 'all') ? allSales : [salesFilter.value];
+                    } else {
+                        salesToDisplay = [currentUser];
+                    }
+
+                    const dealsOnThisDay = allDeals.filter(deal => {
+                        const salesMatch = salesToDisplay.includes(deal.sales);
+                        return salesMatch && deal.meetingDateObj.toDateString() === currentDate.toDateString();
+                    });
+
+                    let eventsHTML = dealsOnThisDay.map(deal => {
+                        const notesIcon = deal.notes ? `<i data-lucide="message-square-text" class="h-3 w-3 inline-block ml-1 text-slate-400"></i>` : '';
+                        return `
+                            <div class="calendar-event" data-id="${deal.id}"> 
+                                <strong>${deal.client.substring(0, 10)}${deal.client.length > 10 ? '...' : ''}</strong> (${deal.sales.split(' ')[0]})<br/>
+                                <span class="text-xs">${deal.meetingType} - Rp ${(deal.value / 1e6).toFixed(0)} jt</span>
+                                ${notesIcon}
+                            </div>
+                        `;
+                    }).join('');
+
+                    calendarHTML += `
+                        <div class="calendar-cell ${isToday ? 'today' : ''}">
+                            <div class="calendar-date">${date}</div>
+                            <div class="flex-grow overflow-y-auto">${eventsHTML}</div>
+                        </div>`;
+                    date++;
+                }
+            }
+             if (date > daysInMonth && i < 5) { 
+               break;
+            }
+        }
+        calendarHTML += `</div>`;
+        calendarContainer.innerHTML = calendarHTML;
+        lucide.createIcons();
+    }
+    
+    // --- Sisa fungsi render tidak berubah ---
+    function renderMetrics(deals){totalMeetingsEl.textContent=deals.length;totalProspectsEl.textContent=deals.filter(d=>!['Action','Delivery','Payment','Lost'].includes(d.meetingType)).length;totalDealsEl.textContent=deals.filter(d=>['Action','Delivery','Payment'].includes(d.meetingType)).length;totalRecurringEl.textContent=deals.filter(d=>d.recurring).length}
+    function renderObstaclesChart(deals){const ctx=document.getElementById('obstaclesChart').getContext('2d');const dealsLost=deals.filter(d=>d.obstacle); const obstacleData=dealsLost.reduce((acc,deal)=>{acc[deal.obstacle]=(acc[deal.obstacle]||0)+1;return acc},{}); if(charts.obstacles)charts.obstacles.destroy();charts.obstacles=new Chart(ctx,{type:'doughnut',data:{labels:Object.keys(obstacleData),datasets:[{label:'Jumlah Hambatan',data:Object.values(obstacleData),backgroundColor:['rgba(251, 113, 133, 0.8)','rgba(249, 115, 22, 0.8)','rgba(234, 179, 8, 0.8)','rgba(139, 92, 246, 0.8)','rgba(96, 165, 250, 0.8)'],borderColor:'#ffffff',borderWidth:2}]},options:{responsive:true,plugins:{legend:{position:'bottom'}}}});}
+    function calculateSalesCycle(deals) { const clientGroups=deals.reduce((acc,deal)=>{acc[deal.client]=acc[deal.client]||[];acc[deal.client].push(deal);return acc},{});const salesData={};for(const clientName in clientGroups){const clientDeals=clientGroups[clientName].sort((a,b)=>new Date(a.meetingDate)-new Date(b.meetingDate)),awarenessDeal=clientDeals.find(d=>d.meetingType==='Awareness'),actionDeal=clientDeals.find(d=>d.meetingType==='Action');if(awarenessDeal&&actionDeal){const awarenessDate=new Date(awarenessDeal.meetingDate),actionDate=new Date(actionDeal.meetingDate),duration=Math.ceil((actionDate-awarenessDate)/864e5),closingSales=actionDeal.sales;if(duration>=0){salesData[closingSales]||(salesData[closingSales]={totalDuration:0,dealCount:0});salesData[closingSales].totalDuration+=duration;salesData[closingSales].dealCount++}}}
+const result=[];for(const salesName in salesData){const data=salesData[salesName];result.push({sales:salesName,dealCount:data.dealCount,averageDuration:Math.round(data.totalDuration/data.dealCount)})}
+return result}
+    function renderSalesCycleAnalysis(deals) { const salesCycleData=calculateSalesCycle(deals),salesCycleBody=document.getElementById('salesCycleBody');if(salesCycleData.length===0){salesCycleBody.innerHTML=`<tr><td colspan="3" class="text-center py-10 text-slate-500">Tidak ada data siklus lengkap (Awareness to Action) yang ditemukan.</td></tr>`;return}
+salesCycleBody.innerHTML=salesCycleData.sort((a,b)=>a.averageDuration-b.averageDuration).map(item=>`
+                <tr class="border-b hover:bg-slate-50">
+                    <td class="px-6 py-4 font-medium">${item.sales}</td>
+                    <td class="px-6 py-4 text-slate-600 text-center">${item.dealCount}</td>
+                    <td class="px-6 py-4 font-semibold text-center">${item.averageDuration} hari</td>
+                </tr>
+            `).join('')}
+    function renderMeetingTrendChart(currentDeals, prevDeals) { 
+        const ctx=document.getElementById('meetingTrendChart').getContext('2d');
+        if (!ctx) return; // Exit if canvas not found
+        const {startDate,endDate}=getFilterDates();
+        const labels=[],newClientDataPoints=[],existingClientDataPoints=[];
+        if(!startDate||!endDate)return;
+        for(let d=new Date(startDate);d<=endDate;d.setDate(d.getDate()+1)){
+            const dateString=d.toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+            labels.push(dateString);
+            const dailyDeals=currentDeals.filter(deal=>new Date(deal.meetingDate).toDateString()===d.toDateString());
+            newClientDataPoints.push(dailyDeals.filter(d=>d.clientType==='new').length);
+            existingClientDataPoints.push(dailyDeals.filter(d=>d.clientType==='existing').length);
+        }
+        const currentTotal=currentDeals.length,prevTotal=prevDeals.length;
+        let percentageChange=0;
+        prevTotal>0?percentageChange=(currentTotal-prevTotal)/prevTotal*100:currentTotal>0&&(percentageChange=100);
+        if(percentageChange>0)trendIndicator.innerHTML=`<i data-lucide="trending-up" class="h-5 w-5 text-emerald-500 mr-1"></i> <span class="text-emerald-500">+${percentageChange.toFixed(0)}%</span>`;
+        else if(percentageChange<0)trendIndicator.innerHTML=`<i data-lucide="trending-down" class="h-5 w-5 text-rose-500 mr-1"></i> <span class="text-rose-500">${percentageChange.toFixed(0)}%</span>`;
+        else trendIndicator.innerHTML=`<i data-lucide="minus" class="h-5 w-5 text-slate-500 mr-1"></i> <span class="text-slate-500">0%</span>`;
+        lucide.createIcons();
+        if(charts.meeting)charts.meeting.destroy();
+        charts.meeting=new Chart(ctx,{type:'line',data:{labels:labels,datasets:[{label:'Pelanggan Baru',data:newClientDataPoints,borderColor:'rgba(59, 130, 246, 1)',backgroundColor:'rgba(59, 130, 246, 0.1)',fill:true,tension:.3},{label:'Pelanggan Existing',data:existingClientDataPoints,borderColor:'rgba(16, 185, 129, 1)',backgroundColor:'rgba(16, 185, 129, 0.1)',fill:true,tension:.3}]},options:{responsive:true,plugins:{legend:{position:'bottom'}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+    }
+    
+    function renderTopMeetingTypesChart(deals){
+        const ctx=document.getElementById('topMeetingTypesChart').getContext('2d');
+        if (!ctx) return; 
+        const typeCounts=deals.reduce((acc,deal)=>{const type=deal.meetingType||'Lainnya';acc[type]=(acc[type]||0)+1;return acc},{});
+        const sortedTypes=Object.entries(typeCounts).sort(([,a],[,b])=>b-a);
+        const labels=sortedTypes.map(entry=>entry[0]);
+        const data=sortedTypes.map(entry=>entry[1]);
+
+        if(charts.topTypes) charts.topTypes.destroy();
+        charts.topTypes=new Chart(ctx,{
+            type:'bar', 
+            data:{
+                labels:labels,
+                datasets:[{
+                    label:'Jumlah',
+                    data:data,
+                    backgroundColor:'rgba(16, 185, 129, 0.7)',
+                    borderColor:'rgba(5, 150, 105, 1)',
+                    borderWidth:1,
+                    borderRadius:5
+                }]
+            },
+            options:{
+                indexAxis:'y', 
+                responsive:true,
+                plugins:{ legend:{ display:false } },
+                scales:{ x:{ beginAtZero:true,ticks:{ stepSize:1 } } }
+            }
+        });
+    }
+    
+    // --- Grafik Capability BARU ---
+    function renderCapabilityChart(deals) {
+        const ctx = document.getElementById('capabilityChart').getContext('2d');
+        if (!ctx) return;
+
+        const capabilityCounts = deals.reduce((acc, deal) => {
+            const cap = deal.capability || 'Belum Ditentukan';
+            acc[cap] = (acc[cap] || 0) + 1;
+            return acc;
+        }, {});
+
+        const labels = Object.keys(capabilityCounts);
+        const data = Object.values(capabilityCounts);
+
+        if (charts.capability) charts.capability.destroy();
+        charts.capability = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Fokus Capability',
+                    data: data,
+                    backgroundColor: [
+                        'rgba(239, 68, 68, 0.7)', // Merah (SIPLah)
+                        'rgba(59, 130, 246, 0.7)', // Biru (IT Outsourcing)
+                        'rgba(203, 213, 225, 0.7)' // Abu-abu (Lainnya)
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                    }
+                }
+            }
+        });
+    }
+
+    // --- Modal Functions ---
+    function showDetailModal(dealId) {
+        const deal = allDeals.find(d => d.id == dealId); 
+        if (!deal) return;
+
+        modalBody.innerHTML = `
+            <p><strong>Nama Klien:</strong> ${deal.client}</p>
+            <p><strong>Sales Person:</strong> ${deal.sales}</p>
+            <p><strong>Tanggal Meeting:</strong> ${new Date(deal.meetingDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+            <p><strong>Capability:</strong> ${deal.capability || 'N/A'}</p>
+            <p><strong>Type Meeting:</strong> ${deal.meetingType}</p>
+            <p><strong>Tipe Klien:</strong> ${deal.clientType === 'new' ? 'Baru' : 'Existing'}</p>
+            <p><strong>Nilai Deal:</strong> Rp ${deal.value.toLocaleString('id-ID')}</p>
+            <p><strong>Recurring:</strong> ${deal.recurring ? 'Ya' : 'Tidak'}</p>
+            ${deal.obstacle ? `<p><strong>Hambatan:</strong> ${deal.obstacle}</p>` : ''}
+            <p><strong>Hasil Meeting:</strong></p>
+            <p class="bg-slate-50 p-3 rounded mt-1">${deal.notes || 'Tidak ada catatan.'}</p>
+        `;
+        detailModal.classList.remove('hidden');
+        detailModalContent.classList.remove('modal-leave');
+        detailModalContent.classList.add('modal-enter');
+    }
+
+    function hideDetailModal() {
+        detailModalContent.classList.add('modal-leave');
+        detailModalContent.classList.remove('modal-enter');
+        setTimeout(() => {
+            detailModal.classList.add('hidden');
+        }, 300); 
+    }
+
+    // --- Event Listeners ---
+    function setupEventListeners() {
+        globalPeriodFilters.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                globalPeriodFilters.querySelector('.active').classList.remove('active');
+                e.target.classList.add('active');
+                customDateContainer.classList.toggle('hidden', e.target.dataset.period !== 'custom');
+                if (e.target.dataset.period !== 'custom') {
+                     currentCalendarDate = getFilterDates().startDate || new Date(); 
+                     renderFilteredDashboard();
+                }
+            }
+        });
+        [startDateInput, endDateInput, salesFilter].forEach(el => el.addEventListener('change',() => {
+             currentCalendarDate = getFilterDates().startDate || new Date(); 
+             renderFilteredDashboard();
+        }));
+        
+        prevMonthBtn.addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            renderCalendar(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth());
+        });
+        nextMonthBtn.addEventListener('click', () => {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            renderCalendar(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth());
+        });
+
+        calendarContainer.addEventListener('click', (e) => {
+            const eventElement = e.target.closest('.calendar-event');
+            if (eventElement) {
+                const dealId = eventElement.dataset.id;
+                showDetailModal(dealId);
+            }
+        });
+
+        closeDetailModalBtn.addEventListener('click', hideDetailModal);
+        detailModal.addEventListener('click', (e) => {
+             if (e.target === detailModal) { 
+                 hideDetailModal();
+             }
+        });
+        
+        roleSelector.addEventListener('change', () => {
+            const role = roleSelector.value;
+            salesPersonSelectorContainer.style.display = (role === 'sales') ? 'block' : 'none';
+            managerSelectorContainer.style.display = (role === 'manager') ? 'block' : 'none';
+        });
+
+        loginBtn.addEventListener('click', () => { 
+            const role = roleSelector.value;
+            const password = passwordInput.value;
+            let user, expectedPassword;
+
+            if (role === 'sales') {
+                user = salesPersonSelector.value;
+                expectedPassword = userCredentials[user];
+            } else if (role === 'manager') {
+                user = managerSelector.value;
+                expectedPassword = userCredentials[user];
+            } else if (role === 'head_sales') {
+                user = 'Head Sales';
+                expectedPassword = userCredentials['head_sales'];
+            }
+            
+            if (password === expectedPassword) {
+                sessionStorage.setItem('salesRole', role);
+                sessionStorage.setItem('salesUser', user);
+                currentRole = role;
+                currentUser = user;
+                showDashboard();
+            } else {
+                loginError.classList.remove('hidden');
+                passwordInput.value = '';
+            }
+        });
+        passwordInput.addEventListener('input', () => loginError.classList.add('hidden'));
+        logoutBtn.addEventListener('click', showLogin);
+        meetingTypeSelect.addEventListener('change',e=>{
+            const selectedType = e.target.value;
+            recurringOption.classList.toggle('hidden', !['Action', 'Delivery', 'Payment'].includes(selectedType));
+            obstacleSection.classList.toggle('hidden', selectedType !== 'Lost');
+        });
+        
+        activityForm.addEventListener('submit', e => {
+            e.preventDefault();
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<i class="animate-spin h-5 w-5 mr-2" data-lucide="loader-2"></i> Mengirim...`;
+            lucide.createIcons();
+            const formData = {
+                id: Date.now(),
+                client: document.getElementById('clientName').value,
+                sales: salesPersonInput.value,
+                meetingType: meetingTypeSelect.value, 
+                value: parseInt(document.getElementById('dealValue').value),
+                recurring: document.getElementById('isRecurring').checked,
+                obstacle: obstacleSection.classList.contains('hidden') ? null : document.getElementById('salesObstacle').value,
+                meetingDate: document.getElementById('meetingDate').value,
+                notes: document.getElementById('meetingNotes').value,
+                clientType: document.querySelector('input[name="clientType"]:checked').value,
+                capability: document.getElementById('capability').value, // Ditambah Capability
+            };
+            fetch(googleScriptURL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(formData) })
+            .then(() => { 
+                formData.meetingDateObj = new Date(formData.meetingDate);
+                allDeals.push(formData); 
+                renderAppView(); 
+                
+                setTimeout(showDashboard, 2000); 
+            })
+            .then(() => {
+                activityForm.reset();
+                document.getElementById('meetingDate').valueAsDate = new Date();
+                recurringOption.classList.add('hidden');
+                obstacleSection.classList.add('hidden');
+                successMessage.textContent = 'Data berhasil disimpan.';
+                successMessage.classList.remove('hidden');
+                setTimeout(() => successMessage.classList.add('hidden'), 3000);
+            })
+            .catch(error => { console.error('Error:', error); alert('Gagal menyimpan data ke server.'); })
+            .finally(() => { submitBtn.disabled = false; submitBtn.textContent = 'Simpan'; });
+        });
+    }
+    
+    init();
+    lucide.createIcons();
+});
+</script>
+</body>
+</html>
+
